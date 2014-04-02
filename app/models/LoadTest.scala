@@ -11,7 +11,7 @@ class LoadTest(uri: URI, userId: Int) {
     for (i <- 1 to threads) {
       val t = new LoadTestThread(uri, userId, i, count)
       t.start
-      Thread.sleep(5000)
+      Thread.sleep(3000)
     }
   }
   
@@ -33,7 +33,6 @@ class LoadTestThread(uri: URI, userId: Int, threadId: Int, count: Int) extends T
             "twitter" : false
           }
         }"""
-println(msg)
         client.send(msg)
         Thread.sleep(5000)
       }

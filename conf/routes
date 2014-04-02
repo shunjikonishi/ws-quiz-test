@@ -4,7 +4,8 @@
 
 # Home page
 GET     /                           controllers.Application.index
-GET     /test                       controllers.Application.test
+GET     /test                       controllers.Application.test(roomId:Int?=1, thread:Int?=1, count:Int?=1)
+GET     /test2                      controllers.Application.test2(room:Int?=1, thread:Int?=1, count:Int?=1)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
