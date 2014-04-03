@@ -4,17 +4,43 @@ import play.Logger
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import java.net.URI
+import play.api.libs.concurrent.Akka
+import scala.concurrent.duration.DurationInt
+import play.api.Play.current
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 class LoadTest(uri: URI, userId: Int) {
   
   def run(threads: Int, count: Int) {
     for (i <- 1 to threads) {
-      val t = new LoadTestThread(uri, userId, i, count)
-      t.start
+      val client = new LoadTestWebSocket(uri, i)
+      client.connectBlocking
+      Akka.system.scheduler.scheduleOnce(5 seconds) {
+        execute(client, 1, count)
+      }
       Thread.sleep(3000)
     }
   }
   
+  def execute(client: LoadTestWebSocket, count: Int, limit: Int): Unit = {
+    val msg = s"""{
+      "id" : $count,
+      "command" : "tweet",
+      "data" : {
+        "userId" : $userId,
+        "msg" : "test ${client.id} - $count",
+        "twitter" : false
+      }
+    }"""
+    client.send(msg)
+    if (count == limit) {
+      client.close
+    } else {
+      Akka.system.scheduler.scheduleOnce(5 seconds) {
+        execute(client, count + 1, limit)
+      }
+    }
+  }
 }
 
 class LoadTestThread(uri: URI, userId: Int, threadId: Int, count: Int) extends Thread {
@@ -42,7 +68,7 @@ class LoadTestThread(uri: URI, userId: Int, threadId: Int, count: Int) extends T
   }
 }
 
-class LoadTestWebSocket(uri: URI, id: Int) extends WebSocketClient(uri) {
+class LoadTestWebSocket(uri: URI, val id: Int) extends WebSocketClient(uri) {
   
   def onOpen(sh: ServerHandshake): Unit = {
     Logger.info(s"onOpen: $id, $uri")
