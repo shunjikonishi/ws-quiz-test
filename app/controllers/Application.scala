@@ -23,6 +23,7 @@ object Application extends Controller {
   def test2(room: Int, thread: Int, count: Int) = Action { implicit request =>
     for (i <- 1 to room) {
       val url = s"http://ws-quiz-test.herokuapp.com/test?roomId=${i}&thread=${thread}&count=${count}"
+//      val url = s"http://localhost:9000/test?roomId=${i}&thread=${thread}&count=${count}"
        WS.url(url).get()
     }
     Ok("OK")

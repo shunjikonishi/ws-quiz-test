@@ -34,7 +34,9 @@ class LoadTest(uri: URI, userId: Int) {
     }"""
     client.send(msg)
     if (count == limit) {
-      client.close
+      if (client.id > 2) {
+        client.close
+      }
     } else {
       Akka.system.scheduler.scheduleOnce(5 seconds) {
         execute(client, count + 1, limit)
@@ -43,43 +45,25 @@ class LoadTest(uri: URI, userId: Int) {
   }
 }
 
-class LoadTestThread(uri: URI, userId: Int, threadId: Int, count: Int) extends Thread {
-  
-  override def run: Unit = {
-    val client = new LoadTestWebSocket(uri, threadId)
-    try {
-      client.connectBlocking
-      for (i <- 1 to count) {
-        val msg = s"""{
-          "id" : $i,
-          "command" : "tweet",
-          "data" : {
-            "userId" : $userId,
-            "msg" : "test $threadId - $i",
-            "twitter" : false
-          }
-        }"""
-        client.send(msg)
-        Thread.sleep(5000)
-      }
-    } finally {
-      client.close
-    }
-  }
-}
-
 class LoadTestWebSocket(uri: URI, val id: Int) extends WebSocketClient(uri) {
   
+  var chatCount = 0
+
   def onOpen(sh: ServerHandshake): Unit = {
     Logger.info(s"onOpen: $id, $uri")
   }
   
   def onMessage(message: String): Unit = {
-    Logger.info(s"onMessage: $id, $message")
+    if (id <= 2 && message.indexOf("\"chat\"") != -1) {
+      chatCount += 1
+    }
   }
   
   def onClose(code: Int, reason: String, remote: Boolean): Unit = {
     Logger.info(s"onClose: $id, $code, $reason, $remote")
+    if (id <= 2) {
+      Logger.info(s"Chat count: $uri, $id = $chatCount")
+    }
   }
   
   def onError(ex: Exception): Unit = {

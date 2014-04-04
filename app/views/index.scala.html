@@ -1,7 +1,48 @@
 @(message: String)
 
-@main("Welcome to Play") {
+@main("WebSocket Test") {
+<style>
+th{width: 150px; text-align: left;}
+td{width: 50px; text-align: right;}
+</style>
+<h1>WebSocket Test</h1>
+@*
+<table border="1">
+	@for(i <- 1 to 10){
+		<tr>
+			<th>Room @{(i-1) * 10 + 1} - @{i*10}</th>
+			@for(j <- 1 to 10){
+				<td id="cnt-@{(i - 1) * 10 + j}">0</td>
+			}
+		</tr>
+	}
+</table>
+<div id="msg">
+</div>
+<script>
+$(function() {
+	function createWebSocket(id) {
+		var con = new WebSocket("ws://ws-quiz.herokuapp.com/test/ws/" + id),
+			cnt = 0;
+		con.onmessage = function(event) {
+			var json = JSON.parse(event.data);
+			console.log(json);
+		}
+		con.onopen = function() {
+			$msg.append("<p>Opened " + id + "</p>");
+		}
+		con.onclose = function() {
+			$msg.append("<p>Closed " + id + "</p>");
+		}
+	}
+	var $msg = $("#msg"),
+		sockets = [];
 
-    @play20.welcome(message)
-
+	for (var i=0; i<1; i++) {
+		sockets.push(createWebSocket(i+1));
+	}
+	console.log("ready");
+});
+</script>
+*@
 }
