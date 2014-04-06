@@ -70,7 +70,16 @@ class LoadTestWebSocket(uri: URI, val id: Int) {
   
   var chatCount = 0
 
-  def send(msg: String):Unit = websocket.sendTextMessage(msg)
+  def send(msg: String):Unit = {
+    try {
+      websocket.sendTextMessage(msg)
+    } catch {
+      case e: Exception =>
+        Logger.error(s"Send error: $uri, $id")
+        e.printStackTrace
+    }
+  }
+
   def close = websocket.close
 
   class MyListener extends WebSocketTextListener {
