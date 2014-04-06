@@ -1,20 +1,20 @@
 package models;
 
 import play.Logger
-import org.java_websocket.client.WebSocketClient
-import org.java_websocket.handshake.ServerHandshake
 import java.net.URI
 import play.api.libs.concurrent.Akka
 import scala.concurrent.duration.DurationInt
 import play.api.Play.current
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import com.ning.http.client._
+import com.ning.http.client.websocket._
+import java.io.IOException
 
 class LoadTest(uri: URI, userId: Int) {
   
   def run(threads: Int, count: Int) {
     for (i <- 1 to threads) {
       val client = new LoadTestWebSocket(uri, i)
-      client.connectBlocking
       Akka.system.scheduler.scheduleOnce(5 seconds) {
         execute(client, 1, count)
       }
@@ -45,29 +45,57 @@ class LoadTest(uri: URI, userId: Int) {
   }
 }
 
-class LoadTestWebSocket(uri: URI, val id: Int) extends WebSocketClient(uri) {
+class LoadTestWebSocket(uri: URI, val id: Int) {
+
+  val websocket = {
+    val c = new AsyncHttpClient()
+    val l = new MyListener()
+    def createWebSocket(retryCount: Int): WebSocket = {
+      try {
+        c.prepareGet(uri.toString).execute(
+          new WebSocketUpgradeHandler.Builder().addWebSocketListener(l).build
+        ).get
+      } catch {
+        case e: IOException =>
+          if (retryCount > 0) {
+              Logger.info(s"Retry connect: $uri, $id")
+              createWebSocket(retryCount - 1)
+            } else {
+              throw e
+            }
+      }
+    }
+    createWebSocket(5)
+  }
   
   var chatCount = 0
 
-  def onOpen(sh: ServerHandshake): Unit = {
-    Logger.info(s"onOpen: $id, $uri")
-  }
-  
-  def onMessage(message: String): Unit = {
-    if (id <= 2 && message.indexOf("\"chat\"") != -1) {
-      chatCount += 1
-    }
-  }
-  
-  def onClose(code: Int, reason: String, remote: Boolean): Unit = {
-    Logger.info(s"onClose: $id, $code, $reason, $remote")
-    if (id <= 2) {
-      Logger.info(s"Chat count: $uri, $id = $chatCount")
-    }
-  }
-  
-  def onError(ex: Exception): Unit = {
-    Logger.error(s"onError: $id, $ex", ex)
-  }
+  def send(msg: String):Unit = websocket.sendTextMessage(msg)
+  def close = websocket.close
 
+  class MyListener extends WebSocketTextListener {
+
+    def onMessage(message: String): Unit = {
+      if (message.indexOf("\"chat\"") != -1) {
+        chatCount += 1
+      }
+    }
+
+    def onOpen(ws: WebSocket): Unit = {
+      Logger.info(s"onOpen: $id, $uri")
+    }
+
+    def onFragment(fragment: String, last: Boolean): Unit = {}
+
+    def onClose(ws: WebSocket): Unit = {
+      Logger.info(s"onClose: $uri, $id")
+      if (id <= 2) {
+        Logger.info(s"Chat count: $uri, $id = $chatCount")
+      }
+    }
+    
+    def onError(ex: Throwable): Unit = {
+      Logger.error(s"onError: $id, $ex", ex)
+    }
+  }
 }
