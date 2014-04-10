@@ -10,15 +10,18 @@ import com.ning.http.client._
 import com.ning.http.client.websocket._
 import java.io.IOException
 
+object LoadTest {
+    val httpClient = new AsyncHttpClient()
+}
 class LoadTest(uri: URI, userId: Int) {
   
   def run(threads: Int, count: Int) {
     for (i <- 1 to threads) {
-      val client = new LoadTestWebSocket(uri, i)
+      val client = new LoadTestWebSocket(LoadTest.httpClient, uri, i)
       Akka.system.scheduler.scheduleOnce(5 seconds) {
         execute(client, 1, count)
       }
-      Thread.sleep(3000)
+      Thread.sleep(1000)
     }
   }
   
@@ -45,18 +48,17 @@ class LoadTest(uri: URI, userId: Int) {
   }
 }
 
-class LoadTestWebSocket(uri: URI, val id: Int) {
+class LoadTestWebSocket(httpClient: AsyncHttpClient, uri: URI, val id: Int) {
 
   val websocket = {
-    val c = new AsyncHttpClient()
     val l = new MyListener()
     def createWebSocket(retryCount: Int): WebSocket = {
       try {
-        c.prepareGet(uri.toString).execute(
+        httpClient.prepareGet(uri.toString).execute(
           new WebSocketUpgradeHandler.Builder().addWebSocketListener(l).build
         ).get
       } catch {
-        case e: IOException =>
+        case e: Exception =>
           if (retryCount > 0) {
               Logger.info(s"Retry connect: $uri, $id")
               createWebSocket(retryCount - 1)
